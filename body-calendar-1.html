@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CORPUS — Personal Body Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:ital@1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a08;
+    --surface: #111110;
+    --surface2: #1a1a18;
+    --border: #2a2a26;
+    --accent: #c8a96e;
+    --accent2: #7a9e7e;
+    --accent3: #8b6f9e;
+    --text: #e8e4dc;
+    --text-muted: #6a6860;
+    --text-dim: #3a3830;
+    --workout: #c8a96e;
+    --fast: #7a9e7e;
+    --bloodwork: #8b6f9e;
+    --checkin: #9e7a6f;
+    --sunday: #2a2218;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRAIN OVERLAY */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  header {
+    padding: 3rem 2rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 8vw, 6rem);
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    line-height: 0.9;
+  }
+
+  .logo-sub {
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-top: 0.5rem;
+  }
+
+  .year-info {
+    text-align: right;
+  }
+
+  .year-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .year-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    color: var(--text);
+    letter-spacing: 0.1em;
+  }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  /* QUARTER NAV */
+  .quarter-nav {
+    display: flex;
+    gap: 0;
+    padding: 1.5rem 2rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .quarter-tab {
+    padding: 0.75rem 1.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .quarter-tab:hover { color: var(--text); }
+  .quarter-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* MAIN GRID */
+  .main {
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 2rem;
+  }
+
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+  }
+
+  /* CALENDAR */
+  .calendar-section {}
+
+  .quarter-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .quarter-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.1em;
+    color: var(--text);
+  }
+
+  .quarter-dates {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-top: 0.25rem;
+  }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+
+  .day-header {
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 0.5rem 0;
+  }
+
+  .day-cell {
+    aspect-ratio: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: default;
+    transition: all 0.15s;
+    min-height: 52px;
+  }
+
+  .day-cell.sunday {
+    background: var(--sunday);
+    border-color: #3a3220;
+  }
+
+  .day-cell.empty {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .day-cell.outside-quarter {
+    opacity: 0.2;
+  }
+
+  .day-num {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1;
+  }
+
+  .day-cell.today .day-num {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .day-cell.today {
+    border-color: var(--accent);
+  }
+
+  .event-dots {
+    display: flex;
+    gap: 2px;
+    margin-top: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 90%;
+  }
+
+  .event-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+  }
+
+  .day-cell.has-workout { background: rgba(200, 169, 110, 0.08); }
+  .day-cell.has-fast { background: rgba(122, 158, 126, 0.08); }
+  .day-cell.has-bloodwork { background: rgba(139, 111, 158, 0.1); border-color: rgba(139, 111, 158, 0.3); }
+  .day-cell.has-checkin { background: rgba(158, 122, 111, 0.08); }
+
+  .day-label {
+    font-size: 0.42rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 2px;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  /* SIDEBAR */
+  .sidebar {}
+
+  .sidebar-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .sidebar-title {
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* UPCOMING EVENTS */
+  .event-item {
+    display: flex;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+  }
+
+  .event-item:last-child { border-bottom: none; }
+
+  .event-date-block {
+    min-width: 36px;
+    text-align: center;
+  }
+
+  .event-day-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .event-month {
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .event-info {}
+
+  .event-type {
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .event-type.workout { color: var(--workout); }
+  .event-type.fast { color: var(--fast); }
+  .event-type.bloodwork { color: var(--bloodwork); }
+  .event-type.checkin { color: var(--checkin); }
+
+  .event-desc {
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+    line-height: 1.4;
+    font-style: italic;
+  }
+
+  /* CYCLE TRACKER */
+  .cycle-bar-wrap {
+    margin-bottom: 1rem;
+  }
+
+  .cycle-label-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.4rem;
+  }
+
+  .cycle-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .cycle-days {
+    font-size: 0.55rem;
+    color: var(--text-muted);
+  }
+
+  .cycle-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .cycle-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  /* STATS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .stat-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.75rem;
+  }
+
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.5rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+  }
+
+  /* PROGRAM CARD */
+  .program-list {
+    list-style: none;
+  }
+
+  .program-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--text);
+  }
+
+  .program-list li:last-child { border-bottom: none; }
+
+  .program-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    color: var(--text-dim);
+    min-width: 16px;
+  }
+
+  .program-note {
+    font-size: 0.5rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* TODAY BANNER */
+  .today-banner {
+    background: linear-gradient(135deg, rgba(200,169,110,0.08), rgba(200,169,110,0.03));
+    border: 1px solid rgba(200,169,110,0.2);
+    border-radius: 4px;
+    padding: 1rem 2rem;
+    margin: 0 2rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .today-left {}
+
+  .today-greeting {
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .today-date {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-top: 0.1rem;
+  }
+
+  .today-right {
+    text-align: right;
+  }
+
+  .today-status {
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .today-sub {
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 0.2rem;
+  }
+
+  .sunday-banner {
+    background: linear-gradient(135deg, rgba(200,169,110,0.05), transparent);
+    border-color: rgba(200,169,110,0.1);
+  }
+
+  /* QUOTE */
+  .quote-section {
+    padding: 1.5rem 2rem;
+    border-top: 1px solid var(--border);
+    margin-top: 1rem;
+  }
+
+  .quote-text {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .spacer { height: 1rem; }
+
+  /* ANIMATIONS */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .calendar-grid, .sidebar-card, .today-banner {
+    animation: fadeIn 0.4s ease forwards;
+  }
+
+  .day-cell:hover:not(.empty):not(.outside-quarter) {
+    border-color: var(--text-dim);
+    z-index: 1;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">CORPUS</div>
+    <div class="logo-sub">Personal Body Calendar — Year I</div>
+  </div>
+  <div class="year-info">
+    <div class="year-label">Solar Year Anchor</div>
+    <div class="year-name">Spring Equinox Anchor</div>
+  </div>
+</header>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:var(--workout)"></div>
+    Workout — Every Monday
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:var(--fast)"></div>
+    Fast — Every 21 Days
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:var(--bloodwork)"></div>
+    Bloodwork — Quarterly
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:var(--checkin)"></div>
+    Quarter Check-In — Day 45
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#3a3220"></div>
+    Lord's Day — Rest
+  </div>
+</div>
+
+<div class="spacer"></div>
+<div id="today-banner-container"></div>
+<div class="spacer"></div>
+
+<div class="quarter-nav" id="quarter-nav"></div>
+
+<div class="main">
+  <div class="calendar-section">
+    <div class="quarter-header">
+      <div class="quarter-title" id="quarter-title"></div>
+      <div class="quarter-dates" id="quarter-dates"></div>
+    </div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-card">
+      <div class="sidebar-title">Upcoming Events</div>
+      <div id="upcoming-events"></div>
+    </div>
+
+    <div class="sidebar-card">
+      <div class="sidebar-title">Cycle Progress</div>
+      <div id="cycle-progress"></div>
+    </div>
+
+    <div class="sidebar-card">
+      <div class="sidebar-title">Year Stats</div>
+      <div class="stats-grid" id="year-stats"></div>
+    </div>
+
+    <div class="sidebar-card">
+      <div class="sidebar-title">The Program</div>
+      <ul class="program-list">
+        <li><span class="program-num">01</span><div><div>Squat</div><div class="program-note">First — freshest CNS, priority lift</div></div></li>
+        <li><span class="program-num">02</span><div><div>Weighted Dips</div><div class="program-note">Chest, shoulders, triceps</div></div></li>
+        <li><span class="program-num">03</span><div><div>Weighted Pull-ups</div><div class="program-note">Back, biceps — V taper builder</div></div></li>
+        <li><span class="program-num">04</span><div><div>Romanian Deadlift</div><div class="program-note">Last — posterior chain, hamstrings</div></div></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="quote-section">
+  <div class="quote-text">"The body achieves what the mind believes. Every system here was built with intention — not borrowed from someone else's calendar."</div>
+</div>
+
+<script>
+  // ─── CONFIGURATION ───────────────────────────────────────────────────────────
+  const CONFIG = {
+    yearStart: new Date(2025, 2, 20), // March 20, 2025 — Year I anchor
+    workoutCycleDays: 7,
+    fastCycleDays: 21,
+    firstWorkout: new Date(2026, 2, 23), // March 23, 2026 — first Monday of Q1
+    firstFast: new Date(2026, 2, 21),   // March 21, 2026 — Q1 day 2, Saturday
+    quarters: [
+      { name: "Q1 — Spring", start: new Date(2026, 2, 20), end: new Date(2026, 5, 18) },
+      { name: "Q2 — Summer", start: new Date(2026, 5, 19), end: new Date(2026, 8, 17) },
+      { name: "Q3 — Autumn", start: new Date(2026, 8, 18), end: new Date(2026, 11, 17) },
+      { name: "Q4 — Winter", start: new Date(2026, 11, 18), end: new Date(2027, 2, 19) },
+    ]
+  };
+
+  const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+
+  // ─── EVENT GENERATION ────────────────────────────────────────────────────────
+  function generateEvents() {
+    const events = {};
+
+    const addEvent = (date, type) => {
+      const key = dateKey(date);
+      if (!events[key]) events[key] = [];
+      events[key].push(type);
+    };
+
+    // Bloodwork — Q start dates
+    CONFIG.quarters.forEach((q, i) => {
+      addEvent(q.start, 'bloodwork');
+      // Quarter check-in at day 45
+      const checkin = new Date(q.start);
+      checkin.setDate(checkin.getDate() + 44);
+      addEvent(checkin, 'checkin');
+    });
+
+    // Workouts — every Monday starting from firstWorkout, for 2 years
+    let w = new Date(CONFIG.firstWorkout);
+    for (let i = 0; i < 104; i++) {
+      // Skip if Sunday (shouldn't happen since we start Monday, but safety check)
+      if (w.getDay() !== 0) {
+        addEvent(new Date(w), 'workout');
+      }
+      w.setDate(w.getDate() + CONFIG.workoutCycleDays);
+    }
+
+    // Fasts — every 21 days, always snapped to nearest Saturday
+    let f = new Date(CONFIG.firstFast); // starts on a Saturday
+    for (let i = 0; i < 35; i++) {
+      let fd = new Date(f);
+      const day = fd.getDay();
+      if (day !== 6) {
+        const daysForward = (6 - day + 7) % 7;
+        const daysBack = day === 0 ? 1 : day;
+        if (daysForward <= daysBack) {
+          fd.setDate(fd.getDate() + daysForward);
+        } else {
+          fd.setDate(fd.getDate() - daysBack);
+        }
+      }
+      addEvent(fd, 'fast');
+      f.setDate(f.getDate() + CONFIG.fastCycleDays);
+    }
+
+    return events;
+  }
+
+  function dateKey(d) {
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+
+  function sameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() &&
+           a.getMonth() === b.getMonth() &&
+           a.getDate() === b.getDate();
+  }
+
+  const EVENTS = generateEvents();
+
+  // ─── QUARTER NAV ─────────────────────────────────────────────────────────────
+  let activeQ = 0;
+
+  // Find which quarter today is in
+  CONFIG.quarters.forEach((q, i) => {
+    if (TODAY >= q.start && TODAY <= q.end) activeQ = i;
+  });
+
+  function renderQuarterNav() {
+    const nav = document.getElementById('quarter-nav');
+    nav.innerHTML = CONFIG.quarters.map((q, i) => `
+      <button class="quarter-tab ${i === activeQ ? 'active' : ''}" onclick="switchQuarter(${i})">
+        ${q.name}
+      </button>
+    `).join('');
+  }
+
+  function switchQuarter(i) {
+    activeQ = i;
+    renderQuarterNav();
+    renderCalendar();
+    renderUpcoming();
+    renderCycleProgress();
+  }
+
+  // ─── CALENDAR RENDER ─────────────────────────────────────────────────────────
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  function renderCalendar() {
+    const q = CONFIG.quarters[activeQ];
+    document.getElementById('quarter-title').textContent = q.name;
+    const qDays = Math.round((q.end - q.start) / 86400000) + 1;
+    document.getElementById('quarter-dates').textContent =
+      `Days 1 — ${qDays} · ${MONTHS[q.start.getMonth()]} ${q.start.getFullYear()}`;
+
+    const grid = document.getElementById('calendar-grid');
+
+    // Day headers
+    let html = DAYS.map(d => `<div class="day-header">${d}</div>`).join('');
+
+    // Empty cells to align first quarter day to correct weekday column
+    const firstDayOfWeek = q.start.getDay();
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      html += `<div class="day-cell empty"></div>`;
+    }
+
+    // Render only days within the quarter
+    let cur = new Date(q.start);
+    let dayNum = 1;
+    while (cur <= q.end) {
+      const key = dateKey(cur);
+      const evts = EVENTS[key] || [];
+      const isToday = sameDay(cur, TODAY);
+      const isSunday = cur.getDay() === 0;
+
+      let classes = ['day-cell'];
+      if (isSunday) classes.push('sunday');
+      if (isToday) classes.push('today');
+      if (evts.includes('workout')) classes.push('has-workout');
+      if (evts.includes('fast')) classes.push('has-fast');
+      if (evts.includes('bloodwork')) classes.push('has-bloodwork');
+      if (evts.includes('checkin')) classes.push('has-checkin');
+
+      const dots = evts.map(e => `<div class="event-dot" style="background:var(--${e})"></div>`).join('');
+
+      const label = evts.includes('bloodwork') ? '<div class="day-label" style="color:var(--bloodwork)">BW</div>' :
+                    evts.includes('workout') ? '<div class="day-label" style="color:var(--workout)">WO</div>' :
+                    evts.includes('fast') ? '<div class="day-label" style="color:var(--fast)">FAST</div>' :
+                    evts.includes('checkin') ? '<div class="day-label" style="color:var(--checkin)">CHECK</div>' :
+                    isSunday ? '<div class="day-label" style="color:#6a5a30;font-size:0.38rem">LORD\'S DAY</div>' : '';
+
+      html += `
+        <div class="${classes.join(' ')}">
+          <div class="day-num">${dayNum}</div>
+          ${dots ? `<div class="event-dots">${dots}</div>` : ''}
+          ${label}
+        </div>
+      `;
+
+      cur.setDate(cur.getDate() + 1);
+      dayNum++;
+    }
+
+    // Trailing empty cells to complete the last row
+    const lastDayOfWeek = q.end.getDay();
+    if (lastDayOfWeek < 6) {
+      for (let i = lastDayOfWeek + 1; i <= 6; i++) {
+        html += `<div class="day-cell empty"></div>`;
+      }
+    }
+
+    grid.innerHTML = html;
+  }
+
+  // ─── TODAY BANNER ─────────────────────────────────────────────────────────────
+  function renderTodayBanner() {
+    const isSunday = TODAY.getDay() === 0;
+    const key = dateKey(TODAY);
+    const evts = EVENTS[key] || [];
+
+    let status = 'Recovery Day';
+    let sub = 'Rest, eat well, sleep long.';
+
+    if (isSunday) {
+      status = "Lord's Day";
+      sub = 'Rest. Reflect. Restore.';
+    } else if (evts.includes('bloodwork')) {
+      status = 'Bloodwork Day';
+      sub = 'Fast before draw. New quarter begins.';
+    } else if (evts.includes('workout')) {
+      status = 'Training Day';
+      sub = 'Squat → Dips → Pull-ups → RDL. One set. True failure.';
+    } else if (evts.includes('fast')) {
+      status = 'Fast Day';
+      sub = '24 hours. System reset. Calendar resets here.';
+    } else if (evts.includes('checkin')) {
+      status = 'Quarter Check-In';
+      sub = 'Review photos, lifts, and bloodwork trends.';
+    }
+
+    const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][TODAY.getDay()];
+
+    document.getElementById('today-banner-container').innerHTML = `
+      <div class="today-banner ${isSunday ? 'sunday-banner' : ''}">
+        <div class="today-left">
+          <div class="today-greeting">Today</div>
+          <div class="today-date">${dayName}, ${MONTH_FULL[TODAY.getMonth()]} ${TODAY.getDate()}, ${TODAY.getFullYear()}</div>
+        </div>
+        <div class="today-right">
+          <div class="today-status">${status}</div>
+          <div class="today-sub">${sub}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ─── UPCOMING EVENTS ─────────────────────────────────────────────────────────
+  function getQuarterDay(date) {
+    // Returns { qName, dayNum } for any date
+    for (let i = 0; i < CONFIG.quarters.length; i++) {
+      const q = CONFIG.quarters[i];
+      if (date >= q.start && date <= q.end) {
+        const dayNum = Math.floor((date - q.start) / 86400000) + 1;
+        return { qName: q.name.split(' ')[0], dayNum };
+      }
+    }
+    // Fallback — before Q1 starts
+    const q = CONFIG.quarters[0];
+    const dayNum = Math.floor((date - q.start) / 86400000) + 1;
+    return { qName: 'Q1', dayNum };
+  }
+
+  function renderUpcoming() {
+    const container = document.getElementById('upcoming-events');
+    const upcoming = [];
+
+    // Scan next 90 days
+    let cur = new Date(TODAY);
+    cur.setDate(cur.getDate() + 1);
+    const limit = new Date(TODAY);
+    limit.setDate(limit.getDate() + 90);
+
+    while (cur <= limit && upcoming.length < 6) {
+      const key = dateKey(cur);
+      const evts = EVENTS[key] || [];
+      evts.forEach(e => {
+        upcoming.push({ date: new Date(cur), type: e });
+      });
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    const typeLabels = {
+      workout: 'Training Day',
+      fast: '24hr Fast',
+      bloodwork: 'Bloodwork',
+      checkin: 'Quarter Check-In'
+    };
+
+    const typeDesc = {
+      workout: 'Squat → Dips → Pull-ups → RDL',
+      fast: 'System reset. Calendar anchor.',
+      bloodwork: 'Full panel. New quarter.',
+      checkin: 'Progress review & benchmarks'
+    };
+
+    container.innerHTML = upcoming.slice(0, 5).map(ev => {
+      const { qName, dayNum } = getQuarterDay(ev.date);
+      return `
+      <div class="event-item">
+        <div class="event-date-block">
+          <div class="event-day-num">${dayNum}</div>
+          <div class="event-month">${qName}</div>
+        </div>
+        <div class="event-info">
+          <div class="event-type ${ev.type}">${typeLabels[ev.type]}</div>
+          <div class="event-desc">${typeDesc[ev.type]}</div>
+        </div>
+      </div>
+    `}).join('');
+  }
+
+  // ─── CYCLE PROGRESS ───────────────────────────────────────────────────────────
+  function renderCycleProgress() {
+    const container = document.getElementById('cycle-progress');
+
+    // Find last workout
+    let lastWorkout = new Date(CONFIG.firstWorkout);
+    let tempW = new Date(CONFIG.firstWorkout);
+    while (tempW <= TODAY) {
+      lastWorkout = new Date(tempW);
+      tempW.setDate(tempW.getDate() + 7);
+    }
+    // lastWorkout is now the most recent Monday workout on or before today
+    // Actually find previous one
+    const nextWorkout = new Date(tempW);
+    const daysSinceWorkout = Math.floor((TODAY - lastWorkout) / 86400000);
+    const daysToNextWorkout = Math.floor((nextWorkout - TODAY) / 86400000);
+    const workoutPct = Math.min(100, (daysSinceWorkout / 7) * 100);
+
+    // Find last fast
+    let lastFast = new Date(CONFIG.firstFast);
+    let tempF = new Date(CONFIG.firstFast);
+    while (tempF <= TODAY) {
+      lastFast = new Date(tempF);
+      tempF.setDate(tempF.getDate() + 21);
+    }
+    const nextFast = new Date(tempF);
+    const daysSinceFast = Math.floor((TODAY - lastFast) / 86400000);
+    const daysToNextFast = Math.floor((nextFast - TODAY) / 86400000);
+    const fastPct = Math.min(100, (daysSinceFast / 21) * 100);
+
+    container.innerHTML = `
+      <div class="cycle-bar-wrap">
+        <div class="cycle-label-row">
+          <span class="cycle-label" style="color:var(--workout)">Workout Cycle</span>
+          <span class="cycle-days">${daysToNextWorkout}d away</span>
+        </div>
+        <div class="cycle-bar">
+          <div class="cycle-fill" style="width:${workoutPct}%;background:var(--workout)"></div>
+        </div>
+      </div>
+      <div class="cycle-bar-wrap">
+        <div class="cycle-label-row">
+          <span class="cycle-label" style="color:var(--fast)">Fast Cycle</span>
+          <span class="cycle-days">${daysToNextFast}d away</span>
+        </div>
+        <div class="cycle-bar">
+          <div class="cycle-fill" style="width:${fastPct}%;background:var(--fast)"></div>
+        </div>
+      </div>
+      <div style="font-size:0.5rem;color:var(--text-muted);margin-top:0.5rem;font-style:italic;">
+        Day ${daysSinceWorkout} of recovery cycle
+      </div>
+    `;
+  }
+
+  // ─── YEAR STATS ───────────────────────────────────────────────────────────────
+  function renderYearStats() {
+    // Count events within Year I only (Mar 20 2026 — Mar 19 2027)
+    const yearStart = new Date(2026, 2, 20);
+    const yearEnd = new Date(2027, 2, 19);
+    let workouts = 0, fasts = 0;
+
+    // Scan day by day through the year and count
+    let scanDay = new Date(yearStart);
+    while (scanDay <= yearEnd) {
+      const k = dateKey(scanDay);
+      const evts = EVENTS[k] || [];
+      if (evts.includes('workout')) workouts++;
+      if (evts.includes('fast')) fasts++;
+      scanDay.setDate(scanDay.getDate() + 1);
+    }
+
+    const dayOfYear = Math.floor((TODAY - new Date(2026, 2, 20)) / 86400000) + 1;
+
+    document.getElementById('year-stats').innerHTML = `
+      <div class="stat-item">
+        <div class="stat-value">${workouts}</div>
+        <div class="stat-label">Sessions / Year</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">${fasts}</div>
+        <div class="stat-label">Fasts / Year</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">4</div>
+        <div class="stat-label">Blood Panels</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">${dayOfYear > 0 ? dayOfYear : '—'}</div>
+        <div class="stat-label">Day of Year I</div>
+      </div>
+    `;
+  }
+
+  // ─── INIT ─────────────────────────────────────────────────────────────────────
+  renderTodayBanner();
+  renderQuarterNav();
+  renderCalendar();
+  renderUpcoming();
+  renderCycleProgress();
+  renderYearStats();
+</script>
+</body>
+</html>
